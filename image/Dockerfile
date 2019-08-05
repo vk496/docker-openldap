@@ -1,6 +1,9 @@
+FROM --platform=$BUILDPLATFORM golang AS cfssl_provider
+RUN env CGO_ENABLED=0 go get -u github.com/cloudflare/cfssl/cmd/cfssl
+RUN env CGO_ENABLED=0 go get -u github.com/cloudflare/cfssl/cmd/cfssljson
 # Use osixia/light-baseimage
 # sources: https://github.com/osixia/docker-light-baseimage
-FROM osixia/light-baseimage:release-1.2.0-dev
+FROM vk496/light-baseimage:stronghome
 
 ARG LDAP_OPENLDAP_GID
 ARG LDAP_OPENLDAP_UID
@@ -13,7 +16,7 @@ RUN if [ -z "${LDAP_OPENLDAP_GID}" ]; then groupadd -r openldap; else groupadd -
 # Add stretch-backports in preparation for downloading newer openldap components, especially sladp
 RUN echo "deb http://ftp.debian.org/debian stretch-backports main" >> /etc/apt/sources.list
 
-COPY download.sh /container/service-available/\:ssl-tools/download.sh
+RUN echo "" > /container/service-available/\:ssl-tools/download.sh
 
 # Install OpenLDAP, ldap-utils and ssl-tools from the (backported) baseimage and clean apt-get files
 # sources: https://github.com/osixia/docker-light-baseimage/blob/stable/image/tool/add-service-available
@@ -33,6 +36,8 @@ RUN echo "path-include /usr/share/doc/krb5*" >> /etc/dpkg/dpkg.cfg.d/docker && a
        krb5-kdc-ldap \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+COPY --from=cfssl_provider /go/bin/* /usr/sbin/
 
 # Add service directory to /container/service
 ADD service /container/service
